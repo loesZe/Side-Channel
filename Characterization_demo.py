@@ -15,9 +15,10 @@ import numpy as np
 from numpy import genfromtxt
 ##
 # Matplotlib is use to generate figures :
-import matplotlib.colors as colors
+##import matplotlib.colors as colors
+#import matplotlib
 import matplotlib.pyplot as plt
-
+#matplotlib.use('Agg')
 ##
 # This function get the raw data in.
 # After reshaping the file is saved as a csv file.
@@ -26,18 +27,18 @@ def handle_Traces(path,verbose):
     # So we get an extra emplty column appended.
     # We get that one removed.
     # Finally the properly formated input is saved in /Data/data.csv
-    data = genfromtxt('IN/test.txt', delimiter=',')
+    data = genfromtxt('IN/traces_demo.txt', delimiter=',')
     data = data[:,:-1]
-    np.savetxt("Data/data.csv", data, delimiter=",")
+    np.savetxt("Data/data_demo.csv", data, delimiter=",")
     
     if verbose :
         nb_samples = data[0].size
         nb_inputs = data.size/nb_samples
-        print 'The input data is %d samples long.' % nb_samples
-        print 'There are %d inputs.' % nb_inputs
-        print 'Hereafter an partial view of this data set:'
-        print data
-        print 'This data set have been recorded data.csv'
+        print ('The input data is %d samples long.' % nb_samples)
+        print ('There are %d inputs.' % nb_inputs)
+        print ('Hereafter an partial view of this data set:')
+        print (data)
+        print ('This data set have been recorded data.csv')
 
     return data
 
@@ -45,7 +46,7 @@ def handle_Traces(path,verbose):
 # MAIN #
 data = handle_Traces('test.txt',1)
 nb_samples = data[0].size
-nb_inputs = data.size/nb_samples
+nb_inputs = int(data.size/nb_samples)
 
 ################################
 #  generate slide "references" #
