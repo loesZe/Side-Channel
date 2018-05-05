@@ -1,13 +1,13 @@
 ####################
 ####################
-# This script looks like Align_demo.py. However it opens ALL the recorded waveform traces (i.e. acquiered using a scope) as weel as the first alignment results obtained previously on the smaller data set.
+# This script looks like Align_prev.py. However it opens ALL the recorded waveform traces (i.e. acquiered using a scope) as weel as the first alignment results obtained previously on the smaller data set.
 # Based on the reference pattern all trace are filtered and aligned.
 # 465 seconds are needed to handle 10,000 traces.
 # File selection is made selectable so the demo data set can be use for shorter computation.
 ####################
 # Author : LoesZe
 # Date : 18/04/2018
-# Last review : 19/04/2018
+# Modified : 05/05/2018
 ####################
 
 #####
@@ -29,8 +29,8 @@ import scipy.spatial as spatial
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 # Tkinter will provide file selection dialog.
-import tkinter as tk
-from tkinter import filedialog
+##import Tkinter as tk
+##from Tkinter import filedialog
 # Time will help us to track how long operations take.
 import time
 start_time = time.time()
@@ -72,9 +72,7 @@ def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
 ##
 # MAIN #
 # select file containing all traces
-root = tk.Tk()
-root.withdraw()
-file_path = filedialog.askopenfilename()
+file_path = "IN/Traces.txt"
 # and open it.
 data = handle_Traces(file_path,1)
 nb_samples = data[0].size
