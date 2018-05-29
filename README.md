@@ -1,197 +1,256 @@
-# Side-Channel---2---Data-Processing
-# Author : LoesZe 
----------------------			RaspberryPi 3B
- Usual command flow:		
----------------------		time(second)	time(minute)
-% python Align_prev.py 		-
-% python Align_all.py 		538.5		9
-% python Leak_R.py 0		1790.9		30
-% python Key_guess_R.py 0	668.7		11
-% python Leak_R.py 1		1796.9		30
-% python Key_guess_R.py 1	648.5		11
-% python Reconstruct.py		-
----------------------			total:	> 1h30m
--------------------
- Flow Description:
--------------------
-In this project, I will get some input data recoreded in Side-Channel---1---Data-Acquisition. 
-An IN/ folder consist of: 
-	Inputs.dat	% N inputs 8bytes messages. 
-	Traces.txt	% N power traces recorded during a the DES encryption of corresponding input.
-	Traces_prev.txt	% M power traces recorded during a DES encryptions. Used to have have an overview of the main data set (Inputs.dat and Traces.txt)
+-------------------------------------------------------------
+ Get your Pi ready :
+-------------------------------------------------------------
+to communicate with card readers:
+	sudo apt-get install opensc pcscd libccid
+	opensc-tool --list-readers
+and, to access it using python:
+	sudo apt-get install python-pyscard
+and then, to get the scope workng, follow :
+	http://scruss.com/blog/2013/12/15/my-raspberry-pi-talks-to-my-oscilloscope/
 
-First Align_prev.py can be run.
-It shows the demo data set Traces_prev.txt and ask for a first "Interval of interest".
-This time interval must picture confortable pattern for alignment and information leakage from the DES encryption.
-It shows then, the preview data set cut and smoothed (together with an averaged traces) and ask for an "Interval of alignment".
-This time interval must picture a pattern for the alignement that will be stored.
-> Data/pattern_info.csv contain the time interval selection WW-XX and YY-ZZ
-> Data/pattern_search_WW_XX_smooth_1500_50000_select_YY_ZZ.csv
+-------------------------------------------------------------
+ Command description :
+-------------------------------------------------------------
 
-Example:
-% python Align_prev.py 
-	The input data is 480 samples long.
-	There are 50 inputs.
-	Hereafter an partial view of this data set:
-	[[ 11.  10.   9. ...,  -4.  -7.  -5.]
-	 [  6.   3.   0. ...,  -6.  -8. -10.]
-	 [ 11.   9.   6. ...,  -5.  -6. -27.]
-	 ..., 
-	 [ 20.  24.  25. ...,  -9.  -7.  -4.]
-	 [ 21.  21.  19. ...,   5.   2.  -3.]
-	 [-14. -16. -18. ..., -22. -17. -13.]]
+-- Smart_card.py --
+Encrypt a given number of random input messages with different keys loaded. Usefull to run when getting the Oscilloscope ready.
+
+	% cd Utilities/
+	% python Smart_card.py
+	% cd ..
+
+-- get_traces.py --
+Record a data set. The set is made of <number of traces> traces. They are labeled, <file name>.
+If no "cut" bondaries, a selection should be made on the figure in order to determine the time interval of interest.
+If "cut" is defined with <start> and <stop> values, then a smaller part of traces is recorded.
+In this file the key is defined as 0x0102030405060708 :
+	nb: LOAD_KEY = [0xA0, 0x0B, 0x00, 0x00, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08] 
+
+	% sudo python get_traces.py <number of traces> <file name>
+
+-- correlation.py --
+Correlate the traces recorded in the folder Traces/ with leakage hypothesis placed in the folder Data/.
+
+	% sudo python correlation.py <traces> <leakages>
+
+-- align_prev.py --
+Align (selection of interval) <number of traces> of cut (selection of interval) and smoothed traces.
+
+	% python align_prev.py <number of traces>  <batch name>
+
+-- align_all.py --
+Cut Smooth and Align all traces of <batch name>.
+
+	% python align_all.py <batch name>
+
+-- leak_R.py  --
+Calculate leakage during <round number> based on the inputs of the batch (named <batch name>).
+
+	% python leak_R.py <batch name> <round number>
+
+-- key_guess_R --
+Try to guess the <round number> round sub_key of the DES.
+
+	% python key_guess_R.py <round number>
+
+-------------------------------------------------------------
+ Command flow for acquisitions :
+-------------------------------------------------------------
+
+> sudo python get_traces.py 20 traces_prev
+	Available readers:  ['OMNIKEY AG 3121 USB 00 00']
+	Using: OMNIKEY AG 3121 USB 00 00
+	--- 19.4324669838 seconds ---
+	press
+	release
+	start: 3255
+	stop: 4906
+		
+> sudo python get_traces.py 2000 traces_2000 3255 4906
+	Available readers:  ['OMNIKEY AG 3121 USB 00 00']
+	Using: OMNIKEY AG 3121 USB 00 00
+	--- 1775.292732 seconds ---
+	
+> python correlation.py traces_2000 traces_2000_in
+	open traces --- 22.8983068466 seconds ---
+	open leakages --- 0.14913392067 seconds ---
+	correlations --- 9.36745214462 seconds ---
+
+> python correlation.py traces_outputs traces_2000_out
+	open traces --- 22.9663069248 seconds ---
+	open leakages --- 0.146953105927 seconds ---
+	correlations --- 9.26957798004 seconds ---
+
+-------------------------------------------------------------
+ Command flow for data peparation :
+-------------------------------------------------------------
+
+> python align_prev.py 10 traces_2000
+	press
+	release
 	-- Interval of interest --
-	first: (50)50
-	last: (300)300
+	start: 766
+	stop: 912
+	press
+	release
 	-- Interval of alignment pattern --
-	first: (42)42
-	last: (202)202
-> Data/pattern_info.csv
-> Data/pattern_search_50_300_smooth_1500_50000_select_42_202.csv
+	start: 31
+	stop: 98
+	
+> python align_all.py traces_2000 0
+	round : 0
+	get traces: --- 21.021584034 seconds ---
+	smooth : 0/2000
+	smooth : 100/2000
+	[...]
+	smooth : 1900/2000
+	smoth traces --- 4.0495159626 seconds ---
+	get + smoth traces --- 25.0713999271 seconds ---
+	aligned : 0/2000
+	aligned : 500/2000
+	aligned : 1000/2000
+	aligned : 1500/2000
+	align traces --- 50.0181560516 seconds ---
+	get + smoth + align traces --- 75.0896408558 seconds ---
+	create new file --- 0.791683912277 seconds ---
+	get + smoth + align + save traces --- 75.8813948631 seconds ---
 
-Then Align_all.py can be run for all other power traces to be aligned with the previously defined pattern.
-This script opens the main data set Traces.txt and apply the same transformations previously applyed to the demo data set when running Align_prev.py.
-> Data/traces_smoothed_aligned.csv
+-------------------------------------------------------------
+ Command flow for Side channel :
+-------------------------------------------------------------
 
-Example:
-% python Align_all.py 
-	The input data is 480 samples long.
-	There are 10000 inputs.
-	Hereafter an partial view of this data set:
-	[[ -8.  -5.  -7. ..., -11. -11. -11.]
-	 [  7.   4.   3. ..., -17. -13. -10.]
-	 [  3.   1.  -1. ..., -14. -34. -29.]
-	 ..., 
-	 [  2.  15.  19. ...,  -8.  -6.  -5.]
-	 [ 33.  54.  45. ...,  -1.  -1.  -4.]
-	 [ 23.  23.  12. ...,  -5.  -1.  -1.]]
-	get traces: --- 26.4998211861 seconds ---
-	smooth : 0/10000
-	smooth : 100/10000
-	% [...] %
-	smooth : 9900/10000
-	smoth traces --- 30.8046917915 seconds ---
-	get + smoth traces --- 57.3046681881 seconds ---
-	aligned : 0/10000
-	aligned : 500/10000
-	% [...] %
-	aligned : 9500/10000
-	align traces --- 483.703071833 seconds ---
-	get + smoth + align traces --- 541.00785017 seconds ---
-	create new file --- 6.84966492653 seconds ---
-	get + smoth + align + save traces --- 547.857644081 seconds ---
-> Data/traces_smoothed_aligned.csv	
-
-Now, the information leakage need to be interpreted into an actual readable value: the secret key.
-
-If we considere the very first round of the DES, 2^6 = 64 round key hypothesis can be made for every sixets.
-Together with a known input message, these round key hypothesis lead to 64 different sets of data being processed.   
-Based on a pre-define power leakage model a leakage score can be given to every key hypothesis.
-
-Taaadaa, Leak_R.py calculates the hypothetical leakage for a specific round (0 or 1) of the DES encryption for all input messages.
-The sixets constinuting the round_key are processed one after the other.
-For every input (m1, m2, .., m.), 64 different sixet hypothesis (k0 k1 k2 ..  k65) are considered in order to calculate the corresponding leakage score.
-a result file leak_(sixet).csv is built as follow:
-	## k0 k1 k2 ..  k65
-   	#m1
-   	#m2
-    	#..    leak(..,..)
-    	#m.
-When the second round of the DES (round=1) is considered, the previous round key need to be guessed. 
-> Data/R(round)/leak_(sixet).csv
-
-Example:
-% python Leak_R.py 0
-	open inputs--- 0.660098075867 seconds ---
+> python leak_R.py traces_2000 0
+	round : 0
+	open inputs--- 0.18065905571 seconds ---
 	sixet_0
-	input handeled : 0/10000
-	input handeled : 500/10000
-	% [...] %
-	input handeled : 9500/10000
-	last --- 230.646135092 seconds ---
-	all until now --- 231.306571007 seconds ---
-	sixet_1
-	input handeled : 0/10000
-	% [...] %
-	input handeled : 9500/10000
-	last --- 228.093240023 seconds ---
-	all until now --- 1834.94464707 seconds ---
-	all --- 1834.94467998 seconds ---
-> Data/R0/leak_0.csv
-> Data/R0/leak_1.csv
-> Data/R0/leak_2.csv
-> Data/R0/leak_3.csv
-> Data/R0/leak_4.csv
-> Data/R0/leak_5.csv
-> Data/R0/leak_6.csv
-> Data/R0/leak_7.csv
+	input handeled : 0/2000
+	input handeled : 500/2000
+	input handeled : 1000/2000
+	input handeled : 1500/2000
+	last --- 43.8948509693 seconds ---
+	[...]
+	sixet_7
+	input handeled : 0/2000
+	input handeled : 500/2000
+	input handeled : 1000/2000
+	input handeled : 1500/2000
+	last --- 46.2623620033 seconds ---
+	all --- 365.183845997 seconds ---
 
-Then, for every sixet, Key_guess_R.py get the N traces and N times 64 leakage scores.
-The N traces represents the actual power leakage of the DES encrypting N input messages.
-The leakage model considered depends on the 64 possible sixet values. 
-Key_guess_R.py returns which sixet value correlate best with the actual leakage.
-> OUT/key_guess_(round).dat
+> python key_guess_R.py 0
+	[...]
+	open leakage --- 6.60930919647 seconds ---
+	power variance --- 0.000413179397583 seconds ---
+	leak variance --- 0.00018310546875 seconds ---
+	correlations --- 6.3912320137 seconds ---
+	Best score (max): 0.067115
+	obtained for key_3
+	Worst score (max): -0.042201
+	obtained for key_63
+	total --- 107.411015987 seconds ---
+	best candidate          : 000000000000000000100000000100110010101010000011 
+	best candidate2         : 000000000000000000111011110111101101011111110001 
+	worst candidate         : 111110111111111111111111111111111111111111111111 
 
-Example:
-% python Key_guess_R.py 0
-	open traces --- 12.3247048855 seconds ---
-	open leakage --- 4.87338399887 seconds ---
-	power variance --- 0.00322890281677 seconds ---
-	leak variance --- 0.00116205215454 seconds ---
-	correlations --- 89.46946311 seconds ---
-	Best score (max): 0.097303
-	obtained for key_0
-	flattening --- 0.0892448425293 seconds ---
-	Best score (diff to mean max): 0.097295
-	obtained for key_0
-	cummulating --- 0.0540328025818 seconds ---
-	Best score (cummulative  diff to mean): 6.336449
-	obtained for key_0
-	open leakage --- 13.9158899784 seconds ---
-	% [...] %
-	obtained for key_2
-	total --- 832.727024794 seconds ---
-	best candidate          : 000000000000000000000000000100110010101010000010 
-	best candidate (max)    : 000000000000000000000000000100110010101010000010 
-	best candidate (cummul) : 000000000000000000000000000100110010101010000010
-> OUT/key_guess_0.dat
+-------------------------------------------------------------
+ Results on round key 0 :
+-------------------------------------------------------------
 
-Now that we have a candidate for the first round key, the hypothetical leakage for next round can be calculated using Leak_R.py.
-And these leakage scores can be used to predicte the next best round key candidate using Key_guess_R.py.
+best candidate          	: 000000 000000 000000 100000 000100 110010 101010 000011  
+the correct sub key is	 	: 000000 000000 000000 000000 000100 110010 101010 000010
 
-Example:
-% python Leak_R.py 1
-% python Key_guess_R.py 1
+-------------------------------------------------------------
+ Pre-conclusions :
+-------------------------------------------------------------
 
-> Data/R1/leak_0.csv
-> Data/R1/leak_1.csv
-> Data/R1/leak_2.csv
-> Data/R1/leak_3.csv
-> Data/R1/leak_4.csv
-> Data/R1/leak_5.csv
-> Data/R1/leak_6.csv
-> Data/R1/leak_7.csv
-> OUT/key_guess_1.dat
+2000 traces are not enough to find out the first round key. 	:(
+But we are seriously close of the correct key.				:)
+And we get there that in very limited amount of time.	 			:)
 
-Finally, Reconstruct.py makes the results -maybe more readable- and certainly more dramatic.
-Combinating key_guess_0.dat and key_guess_1.dat, the SECRET KEY can be reconstructed!!
-> OUT/key_guess.dat
+-------------------------------------------------------------
+ Command flow for Side channel :
+-------------------------------------------------------------
 
-Example:
-% python Reconstruct.py
-	key_0   : 0000000000000010000000100000010000000100000000100000011000001000
-	key_1   : 0000000000000010000000100000010000000000000001100000011000000000
-	key     : 0000000000000010000000100000010000000100000001100000011000001000
-	key(hex): 00 02 02 04 04 06 06 08
-> OUT/key_guess.dat
--------------------
-NOTE : 0x"00 02 02 04 04 06 06 08" and 0x"01 02 03 04 05 06 07 08" will both lead to key(hex) = 0x"00 02 02 04 04 06 06 08".
-Because the parity bit is not used, every last bit of every byte of the key can be changed without impact on the encryption result.
----------------
- Dependencies:
----------------
-Numpy
-Scipy
-Matplotlib
--
-I might use Tkinter to select a file in a near future. But it is commented out for now.
+> python leak_R.py traces_2000 1
+	round : 1
+	open inputs--- 0.178271055222 seconds ---
+	sixet_0
+	input handeled : 0/2000
+	input handeled : 500/2000
+	input handeled : 1000/2000
+	input handeled : 1500/2000
+	last --- 42.6916601658 seconds ---
+	[...]
+	sixet_7
+	input handeled : 0/2000
+	input handeled : 500/2000
+	input handeled : 1000/2000
+	input handeled : 1500/2000
+	last --- 43.7192249298 seconds ---
+	all --- 344.121645927 seconds ---
+
+python key_guess_R.py 1
+	[...]
+	open leakage --- 6.68929696083 seconds ---
+	power variance --- 0.00048303604126 seconds ---
+	leak variance --- 0.000189065933228 seconds ---
+	correlations --- 6.42830204964 seconds ---
+	Best score (max): 0.088885
+	obtained for key_50
+	Worst score (max): -0.030319
+	obtained for key_63
+	total --- 108.789808989 seconds ---
+	best candidate          : 110000010100111111110101110001000100010011110010 
+	best candidate2         : 011110001011110101100000001100111110101000111001 
+	worst candidate         : 111111111111111110111110011101111111111110111111
+
+-------------------------------------------------------------
+ Results on round key 1 :
+-------------------------------------------------------------
+
+best candidate          	: 110000 010100 111111 110101 110001 000100 010011 110010 
+the correct sub key is	 	: 000000 000000 000000 000000 000100 000010 001100 000111
+
+-------------------------------------------------------------
+ Almost-conclusions :
+-------------------------------------------------------------
+
+some little error became bigger. 	:(
+
+-------------------------------------------------------------
+ Command flow to get back to the best key candidate :
+-------------------------------------------------------------
+
+> python ##TO DO##
+
+-------------------------------------------------------------
+ Questionning :
+-------------------------------------------------------------
+
+Maybe another key would have leaked more.
+Maybe a better analog filtering would have provide better data set.
+Maybe post processing operation fuzzed the leakage over time.
+Maybe alignement is to be questioned.
+Maybe the input handeling effect over the power consumption should be considered.
+	This information can be used to ponderate later correlation with key hypothesis.
+
+					...So many parameters to be played with.
+
+-------------------------------------------------------------
+ Command flow for an extra acquisitions ?
+-------------------------------------------------------------
+
+> sudo python get_traces.py 20 traces_prev
+	Available readers:  ['OMNIKEY AG 3121 USB 00 00']
+	Using: OMNIKEY AG 3121 USB 00 00
+	--- 19.6282260418 seconds ---
+	press
+	release
+	start: 3709
+	stop: 4217
+
+> sudo python get_traces.py 5000 traces_all 3709 4217
+	Available readers:  ['OMNIKEY AG 3121 USB 00 00']
+	Using: OMNIKEY AG 3121 USB 00 00
+	--- 4441.59061003 seconds ---

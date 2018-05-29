@@ -14,6 +14,11 @@
 # Importing libraries
 #####
 ##
+from __future__ import print_function
+import sys
+import os
+import subprocess
+import random
 # Numpy is fundamental for scientific computing using python. It deals here with arrays a lot, opens and saves file in CSV form.
 import numpy as np
 from numpy import pi
@@ -71,12 +76,14 @@ def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
 
 ##
 # MAIN #
-# select file containing all traces
-file_path = "IN/Traces.txt"
-# and open it.
-data = handle_Traces(file_path,1)
+name = "traces_nn"
+if (len(sys.argv) > 1):
+    name = str(sys.argv[1])
+    
+data = genfromtxt("Traces/" + name + ".dat", delimiter=',')
 nb_samples = data[0].size
-nb_trace = int(data.size/nb_samples)
+nb_inputs = int(data.size/nb_samples)
+
 
 print("get traces: --- %s seconds ---" % (time.time() - start_time))
 step_time = time.time()
@@ -86,10 +93,10 @@ step_time = time.time()
 search_range = last_search - first_search
 
 # cut and smooth traces
-row_smooth = np.zeros( (nb_trace,search_range), dtype=np.int16  )
-for idx in range(nb_trace):
+row_smooth = np.zeros( (nb_inputs,search_range), dtype=np.int16  )
+for idx in range(nb_inputs):
     if (not(idx % 100)):
-        print ("smooth : %d/%d"%(idx,nb_trace))
+        print ("smooth : %d/%d"%(idx,nb_inputs))
     row_smooth[idx] = butter_lowpass_filtfilt(data[idx,first_search:last_search], cutoff, fs)  
 
 print("smoth traces --- %s seconds ---" % (time.time() - step_time))
@@ -101,10 +108,10 @@ pattern = genfromtxt("Data/pattern_search_%d_%d_smooth_%d_%d_select_%d_%d.csv"%(
 pattern_size = last_sample - first_sample
 
 # aligning all traces
-ids_best = np.zeros(nb_trace, dtype=np.int16  )
-for idx in range(nb_trace):
+ids_best = np.zeros(nb_inputs, dtype=np.int16  )
+for idx in range(nb_inputs):
     if (not(idx % 500)):
-        print ("aligned : %d/%d"%(idx,nb_trace))
+        print ("aligned : %d/%d"%(idx,nb_inputs))
     corr = np.zeros( (2,search_range-pattern_size))
     for ids in range(search_range-pattern_size):
         corr[0,ids],corr[1,ids]  = pearsonr(pattern,row_smooth[idx,ids:ids+pattern_size])
@@ -116,8 +123,8 @@ print("get + smoth + align traces --- %s seconds ---" % (time.time() - start_tim
 step_time = time.time()
 
 # generating a new cut, smoothed and aligned data file
-data_smooth_aligned = np.zeros( (nb_trace,search_range-ids_best.max()), dtype=np.int16  )
-for idx in range(nb_trace):
+data_smooth_aligned = np.zeros( (nb_inputs,search_range-ids_best.max()), dtype=np.int16  )
+for idx in range(nb_inputs):
     data_smooth_aligned[idx] = row_smooth[idx,ids_best[idx]:ids_best[idx]+search_range-ids_best.max()]
 np.savetxt("Data/traces_smoothed_aligned.csv", data_smooth_aligned, delimiter=",")
 

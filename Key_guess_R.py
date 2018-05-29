@@ -67,12 +67,13 @@ nb_inputs = int(traces.size/nb_samples)
 print("open traces --- %s seconds ---" % (time.time() - start_time))
 step_time = time.time()
 
+margin = 15
 best_candidate = ""
-best_candidate_diff = ""
-best_candidate_cummul = ""
+best_candidate2 = ""
+worst_candidate = ""
 
 for ids in range(8):
-    leak = genfromtxt("Data/R%d/leak_%d.csv" % (start,ids), delimiter=',', dtype=np.int8)
+    leak = genfromtxt("Data/R%d/leak_%d.dat" % (start,ids), delimiter=',', dtype=np.int8)
     nb_guess = leak[0].size
     print("open leakage --- %s seconds ---" % (time.time() - step_time))
     step_time = time.time()
@@ -98,12 +99,30 @@ for ids in range(8):
 
     # best guess based on maximal correlation value
     k_max = 0
+    k_max2 = 0
     idx_best = 0
-    k_max = corr[0].max()  # the max is failing in my case, maybe get also the second best candidate ? or  use another method, like the cumulated leakage ?
+    idx_best2 = 1
+    if (corr[1,margin:-margin].max() > corr[0,margin:-margin].max()):
+        idx_best = 1
+        idx_best2 = 0
+                
+    k_max = corr[idx_best,margin:-margin].max()  # the max is failing in my case, maybe get also the second best candidate ? or  use another method, like the cumulated leakage ?
+    k_max2 = corr[idx_best2,margin:-margin].max()
+
+    
     for idx in range(nb_guess): # for every key candidate
-        if (corr[idx].max() > corr[idx_best].max()):
+        better = 0
+        if (corr[idx,margin:-margin].max() > corr[idx_best,margin:-margin].max()):
+            better = 1
+            idx_best2 = idx_best
+            k_max2 = k_max
+            
             idx_best = idx
-            k_max = corr[idx].max()
+            k_max = corr[idx,margin:-margin].max()
+        if (better == 0): 
+            if (corr[idx,margin:-margin].max() > corr[idx_best2,margin:-margin].max()):
+                idx_best2 = idx
+                k_max2 = corr[idx,margin:-margin].max()
     print ("Best score (max): %f" % k_max)
     print ("obtained for key_%d" % idx_best)
 
@@ -111,57 +130,24 @@ for ids in range(8):
     key = bin(int(idx_best))[2:].zfill(num_of_bits)
     best_candidate +=  key
 
-
-    ####################
-    # diff to mean
-    diff_mean = np.zeros( (nb_guess,nb_samples))
-    for idt in range(nb_samples): # for every moment in time
-        corr_mean = 0
-        for idx in range(nb_guess): # for every key candidate
-            corr_mean = corr_mean + corr[idx,idt]
-        corr_mean = corr_mean / nb_guess
-        for idx in range(nb_guess):
-            diff_mean[idx,idt] = abs(corr[idx,idt]-corr_mean)
-    print("flattening --- %s seconds ---" % (time.time() - step_time))
-    step_time = time.time()
-
-    # best guess based on the maximal difference to the mean of correlation values
-    k_diff_max = 0
-    idx_diff_best = 0
-    k_diff_max = diff_mean[0].max()  # the max is failing in my case, maybe get also the second best candidate ? or  use another method, like the cumulated leakage ?
+    num_of_bits = 6
+    key2 = bin(int(idx_best2))[2:].zfill(num_of_bits)
+    best_candidate2 +=  key2
+    
+    # worse guess based on minimal correlation value
+    k_min = 0
+    idx_worst = 0
+    k_min = corr[0,margin:-margin].min()  # the max is failing in my case, maybe get also the second best candidate ? or  use another method, like the cumulated leakage ?
     for idx in range(nb_guess): # for every key candidate
-        if (diff_mean[idx].max() > diff_mean[idx_diff_best].max()):
-            idx_diff_best = idx
-            k_diff_max = diff_mean[idx].max()
-    print ("Best score (diff to mean max): %f" % k_diff_max)
-    print ("obtained for key_%d" % idx_diff_best)
+        if (corr[idx,margin:-margin].min() > corr[idx_best,margin:-margin].min()):
+            idx_worst = idx
+            k_min = corr[idx,margin:-margin].min()
+    print ("Worst score (max): %f" % k_min)
+    print ("obtained for key_%d" % idx_worst)
 
     num_of_bits = 6
-    key_diff = bin(int(idx_diff_best))[2:].zfill(num_of_bits)
-    best_candidate_diff +=  key_diff
-
-    ####################
-    # cummulative
-    k_cummulative = np.zeros((1,nb_guess))
-    for idx in range(nb_guess): # for every key candidate
-        for idt in range(nb_samples):
-            k_cummulative[0,idx] += diff_mean[idx,idt]
-    print("cummulating --- %s seconds ---" % (time.time() - step_time))
-    step_time = time.time()
-    
-    k_cummul_max = 0
-    idx_cummul_best = 0
-    k_cummul_max = k_cummulative[0,0] 
-    for idx in range(nb_guess): # for every key candidate
-        if (k_cummulative[0,idx] > k_cummulative[0,idx_cummul_best]):
-            idx_cummul_best = idx
-            k_cummul_max = k_cummulative[0,idx]
-    print ("Best score (cummulative  diff to mean): %f" % k_cummul_max)
-    print ("obtained for key_%d" % idx_cummul_best)
-    
-    num_of_bits = 6
-    key_cummul = bin(int(idx_cummul_best))[2:].zfill(num_of_bits)
-    best_candidate_cummul +=  key_cummul      
+    key_w = bin(int(idx_worst))[2:].zfill(num_of_bits)
+    worst_candidate +=  key_w
 
     ################################
     #  generate slide "references" #
@@ -169,7 +155,7 @@ for ids in range(8):
     x = range(nb_samples)
     fig = plt.figure(figsize=(32,18))
     fig.clf()
-    fig.suptitle("Best correlation: %d - %s" % (idx_diff_best,key_diff), fontsize=16)
+    fig.suptitle("Best correlation: %d - %s" % (idx_best,key), fontsize=16)
 
     plot_C_vs_t = plt.subplot("111")
     plot_C_vs_t.set_ylabel('Input byte Correlation')
@@ -186,14 +172,14 @@ for ids in range(8):
     ################################
 
 print("total --- %s seconds ---" % (time.time() - start_time))
-print("best candidate          : %s " % best_candidate) 
-print("best candidate (max)    : %s " % best_candidate_diff)   
-print("best candidate (cummul) : %s " % best_candidate_cummul)
+print("best candidate          : %s " % best_candidate)
+print("best candidate2         : %s " % best_candidate2) 
+print("worst candidate         : %s " % worst_candidate)   
 
 keys = ["" for x in range(3)]
 keys[0] = best_candidate
-keys[1] = best_candidate_diff
-keys[2] = best_candidate_cummul
+keys[1] = best_candidate2
+keys[2] = worst_candidate
 
 file = open("OUT/key_guess_%d.dat" % start,"w+")
 for i in range(3):

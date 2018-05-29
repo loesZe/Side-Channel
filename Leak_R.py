@@ -192,7 +192,9 @@ def DES_leak(message,k_prev,start,stop,sixet):
 # MAIN #
 start = 0
 if (len(sys.argv) > 1):
-    if (int(sys.argv[1]) == 1) :   
+    name = str(sys.argv[1])
+if (len(sys.argv) > 2):
+    if (int(sys.argv[2]) == 1) :   
         start = 1
 stop = start+1
 print("round : %s" % start)
@@ -206,10 +208,9 @@ if (start == 0):
     k_prev = bin(int(0))[2:].zfill(48)  
 
 start_time = time.time()
-inputs = genfromtxt('IN/Inputs.dat', delimiter=',')
+inputs = genfromtxt("Data/" + name + "_in.dat", delimiter=',')
 nb_bytes = inputs[0].size
 nb_inputs = int(inputs.size/nb_bytes)
-
 print("open inputs--- %s seconds ---" % (time.time() - start_time))
 step_time = time.time()
 
@@ -225,10 +226,8 @@ for ids in range(8):
         for idb in range(nb_bytes):
             message += bin(int(inputs[idi,idb]))[2:].zfill(num_of_bits) 
         leak[idi] = DES_leak(message,k_prev,start,stop,ids)
-    np.savetxt("Data/R%d/leak_%d.csv" % (start,ids), leak, delimiter=",")
-    
+    np.savetxt("Data/R%d/leak_%d.dat" % (start,ids), leak, delimiter=",")
     print("last --- %s seconds ---" % (time.time() - step_time))
-    print("all until now --- %s seconds ---" % (time.time() - start_time))
     step_time = time.time()    
 print("all --- %s seconds ---" % (time.time() - start_time))
 
